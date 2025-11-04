@@ -1,0 +1,616 @@
+@startuml FNAK_III_Class_Diagram
+
+' ====================================================================
+' FNAK III - Complete Class Diagram
+' ====================================================================
+
+!define INTERFACE_COLOR #E8F5E9
+!define SERVICE_COLOR #E3F2FD
+!define CONTROLLER_COLOR #FFF3E0
+!define UI_COLOR #FCE4EC
+!define DATA_COLOR #F3E5F5
+!define UTILS_COLOR #E0F2F1
+
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam ArrowColor #424242
+skinparam ClassBorderColor #757575
+
+' ====================================================================
+' CORE - Bootstrap
+' ====================================================================
+
+package "Core.Bootstrap" {
+    class GameBootstrap <<MonoBehaviour>> {
+        - initialTargetFPS: int
+        - Awake(): void
+        - InitializeGlobalSettings(): void
+    }
+}
+
+' ====================================================================
+' CORE - Constants
+' ====================================================================
+
+package "Core.Constants" {
+    class SceneConstants <<static>> #DATA_COLOR {
+        + {static} SCENE_MAIN_MENU: string
+        + {static} SCENE_NIGHT_1: string
+        + {static} SCENE_NIGHT_2: string
+        + {static} SCENE_NIGHT_3: string
+        + {static} SCENE_NIGHT_4: string
+        + {static} SCENE_NIGHT_5: string
+        + {static} MIN_NIGHT: int
+        + {static} MAX_NIGHT: int
+        + {static} FIRST_NIGHT: int
+        - {static} NightToSceneMap: Dictionary<int, string>
+        + {static} TryGetSceneForNight(nightNumber: int, sceneName: out string): bool
+        + {static} IsValidNight(nightNumber: int): bool
+    }
+    
+    class AnimatorConstants <<static>> #DATA_COLOR {
+        + {static} TRIGGER_GLITCH_SCREEN_SAVER: string
+    }
+}
+
+' ====================================================================
+' CORE - Data
+' ====================================================================
+
+package "Core.Data" {
+    class GameProgress <<Serializable>> #DATA_COLOR {
+        + CurrentNight: int
+        + TotalDeaths: int
+        + GameProgress()
+    }
+    
+    class GameSettings #DATA_COLOR {
+    }
+}
+
+' ====================================================================
+' CORE - Services (Interfaces)
+' ====================================================================
+
+package "Core.Services.Interfaces" {
+    interface IFrameRateLimiter <<interface>> #INTERFACE_COLOR {
+        + SetTargetFrameRate(targetFps: int): void
+        + GetTargetFrameRate(): int
+    }
+    
+    interface IAudioService <<interface>> #INTERFACE_COLOR {
+        + PlayOneShot(audioSource: AudioSource): void
+        + PlayOneShot(audioSource: AudioSource, clip: AudioClip): void
+    }
+    
+    interface ISceneLoader <<interface>> #INTERFACE_COLOR {
+        + LoadNight(nightNumber: int): void
+        + LoadMainMenu(): void
+        + ReloadCurrentScene(): void
+        + LoadScene(sceneName: string): void
+    }
+    
+    interface IGameApplication <<interface>> #INTERFACE_COLOR {
+        + Quit(): void
+    }
+    
+    interface IProgressStorage <<interface>> #INTERFACE_COLOR {
+        + Save(progress: GameProgress): void
+        + Load(): GameProgress
+        + HasSavedProgress(): bool
+        + Clear(): void
+    }
+}
+
+' ====================================================================
+' CORE - Services (Implementations)
+' ====================================================================
+
+package "Core.Services" {
+    class FrameRateLimiter #SERVICE_COLOR {
+        + SetTargetFrameRate(targetFps: int): void
+        + GetTargetFrameRate(): int
+    }
+    
+    class AudioService #SERVICE_COLOR {
+        + PlayOneShot(audioSource: AudioSource): void
+        + PlayOneShot(audioSource: AudioSource, clip: AudioClip): void
+    }
+    
+    class SceneLoader #SERVICE_COLOR {
+        + LoadNight(nightNumber: int): void
+        + LoadMainMenu(): void
+        + ReloadCurrentScene(): void
+        + LoadScene(sceneName: string): void
+    }
+    
+    class GameApplication #SERVICE_COLOR {
+        + Quit(): void
+    }
+    
+    class PlayerPrefsProgressStorage #SERVICE_COLOR {
+        - {static} KEY_CURRENT_NIGHT: string
+        - {static} KEY_TOTAL_DEATHS: string
+        - {static} KEY_HAS_SAVE: string
+        + Save(progress: GameProgress): void
+        + Load(): GameProgress
+        + HasSavedProgress(): bool
+        + Clear(): void
+    }
+}
+
+' ====================================================================
+' GAMEPLAY - Player
+' ====================================================================
+
+package "Gameplay.Player" {
+    enum PlayerState #DATA_COLOR {
+        Walking
+        Hiding
+        InteractingUI
+    }
+    
+    class Player <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - currentState: PlayerState
+        - hasFlashDrive: bool
+        - crouchHeightMultiplier: float
+        - _characterController: CharacterController
+        - _isCrouched: bool
+        - _originalHeight: float
+        - _originalCenter: Vector3
+        + State: PlayerState <<property>>
+        + HasFlashDrive: bool <<property>>
+        + IsCrouched: bool <<property>>
+        + Controller: CharacterController <<property>>
+        - Awake(): void
+        + Hide(): void
+        + Walk(): void
+        + InteractWithUI(): void
+        + ToggleCrouch(): void
+        + Crouch(): void
+        + StandUp(): void
+        + MoveTo(position: Vector3): void
+        + CanMove(): bool
+        - OnValidate(): void
+    }
+    
+    class PlayerController <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - walkSpeed: float
+        - gravity: float
+        - playerCamera: Transform
+        - mouseSensitivity: float
+        - touchSensitivity: float
+        - minPitch: float
+        - maxPitch: float
+        - usePCInput: bool
+        - movementJoystick: VirtualJoystick
+        - cameraDeadZone: CameraDeadZone
+        - crouchButton: CrouchButton
+        - showCrosshair: bool
+        - _player: Player
+        - _inputSource: IPlayerInputSource
+        - _pitch: float
+        - _yaw: float
+        - _velocity: Vector3
+        - Awake(): void
+        - InitializeInputSource(): void
+        - Update(): void
+        - HandleMovement(): void
+        - HandleCamera(): void
+        - HandleInteraction(): void
+        - HandlePause(): void
+        - OnCrouchButtonPressed(): void
+        - OnGUI(): void
+        - DrawCrosshair(): void
+        + SetMovementJoystick(joystick: VirtualJoystick): void
+        + SetCameraDeadZone(deadZone: CameraDeadZone): void
+        + SetCrouchButton(button: CrouchButton): void
+        - OnValidate(): void
+    }
+    
+    class FNAFStyleController <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - playerCamera: Transform
+        - limitRotation: bool
+        - minYaw: float
+        - maxYaw: float
+        - rotationSpeedMultiplier: float
+        - leftRotationButton: RotationButton
+        - rightRotationButton: RotationButton
+        - hideButton: ActionButton
+        - openCameraButton: ActionButton
+        - lookDetector: LookTargetDetector
+        - _player: Player
+        - _inputSource: IPlayerInputSource
+        - _currentYaw: float
+        - Awake(): void
+        - InitializeInputSource(): void
+        - ConnectActionButtons(): void
+        - Update(): void
+        - HandleCameraRotation(): void
+        - OnHideButtonPressed(): void
+        - OnOpenCameraButtonPressed(): void
+        + SetLeftRotationButton(button: RotationButton): void
+        + SetRightRotationButton(button: RotationButton): void
+        + GetCurrentYaw(): float
+        + ResetRotation(): void
+        + SetRotationLimit(enabled: bool): void
+        + SetRotationSpeedMultiplier(multiplier: float): void
+        - OnValidate(): void
+    }
+    
+    class LookTargetDetector <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - playerCamera: Camera
+        - maxDistance: float
+        - targetLayers: LayerMask
+        - showDebugRay: bool
+        - enableDebugLogs: bool
+        - _currentTarget: ILookTarget
+        - _currentTargetObject: GameObject
+        - Update(): void
+        - CheckLookTarget(): void
+        + GetCurrentTarget(): ILookTarget
+        + IsLookingAtTarget(): bool
+        + IsLookingAt(targetObject: GameObject): bool
+        - OnValidate(): void
+        - OnDrawGizmos(): void
+    }
+}
+
+' ====================================================================
+' GAMEPLAY - Player Input
+' ====================================================================
+
+package "Gameplay.Player.Input" {
+    interface IPlayerInputSource <<interface>> #INTERFACE_COLOR {
+        + GetMovement(): Vector2
+        + GetLook(): Vector2
+        + GetInteractInput(): bool
+        + GetPauseInput(): bool
+        + GetCrouchInput(): bool
+    }
+    
+    class PCInputSource #SERVICE_COLOR {
+        - _mouseSensitivity: float
+        + PCInputSource(mouseSensitivity: float = 2.0f)
+        + GetMovement(): Vector2
+        + GetLook(): Vector2
+        + GetInteractInput(): bool
+        + GetPauseInput(): bool
+        + GetCrouchInput(): bool
+    }
+    
+    class MobileInputSource #SERVICE_COLOR {
+        - _touchSensitivity: float
+        - _movementJoystick: VirtualJoystick
+        - _deadZone: CameraDeadZone
+        - _crouchButton: CrouchButton
+        - _lastTouchPosition: Vector2
+        - _isTouching: bool
+        - _cameraFingerID: int
+        + MobileInputSource(movementJoystick: VirtualJoystick, ...)
+        + GetMovement(): Vector2
+        + GetLook(): Vector2
+        + GetInteractInput(): bool
+        + GetPauseInput(): bool
+        + GetCrouchInput(): bool
+        + SetMovementJoystick(joystick: VirtualJoystick): void
+        + SetDeadZone(deadZone: CameraDeadZone): void
+        + SetCrouchButton(button: CrouchButton): void
+    }
+    
+    class ButtonInputSource #SERVICE_COLOR {
+        - _leftButton: RotationButton
+        - _rightButton: RotationButton
+        + ButtonInputSource(leftButton: RotationButton, rightButton: RotationButton)
+        + GetMovement(): Vector2
+        + GetLook(): Vector2
+        + GetInteractInput(): bool
+        + GetPauseInput(): bool
+        + GetCrouchInput(): bool
+        + SetLeftButton(button: RotationButton): void
+        + SetRightButton(button: RotationButton): void
+    }
+}
+
+' ====================================================================
+' GAMEPLAY - Interaction
+' ====================================================================
+
+package "Gameplay.Interaction" {
+    interface ILookTarget <<interface>> #INTERFACE_COLOR {
+        + OnLookEnter(): void
+        + OnLookStay(): void
+        + OnLookExit(): void
+        + GetTargetName(): string
+        + IsBeingLookedAt: bool <<property>>
+    }
+    
+    class LookTarget <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - targetName: string
+        - enableDebugLogs: bool
+        - _isBeingLookedAt: bool
+        + OnLookEnterEvent: UnityEvent
+        + OnLookStayEvent: UnityEvent
+        + OnLookExitEvent: UnityEvent
+        + OnLookEnter(): void
+        + OnLookStay(): void
+        + OnLookExit(): void
+        + GetTargetName(): string
+        + IsBeingLookedAt: bool <<property>>
+        - OnDrawGizmos(): void
+    }
+}
+
+' ====================================================================
+' GAMEPLAY - Night Controller
+' ====================================================================
+
+package "Gameplay" {
+    class Night1Controller <<MonoBehaviour>> #CONTROLLER_COLOR {
+        - playerController: PlayerController
+        - targetFPS: int
+        - _frameRateLimiter: IFrameRateLimiter
+        - _sceneLoader: ISceneLoader
+        - Awake(): void
+        - InitializeDependencies(): void
+        - ValidateComponents(): void
+        + OnNightCompleted(): void
+        + OnNightFailed(): void
+        - OnValidate(): void
+        - DebugCompleteNight(): void
+        - DebugFailNight(): void
+    }
+}
+
+' ====================================================================
+' UI - Main Menu
+' ====================================================================
+
+package "UI" {
+    class MainMenu <<MonoBehaviour>> #UI_COLOR {
+        - buttonClickAudioSource: AudioSource
+        - glitchTransition: GlitchScreenTransition
+        - targetFPS: int
+        - sceneLoadDelay: float
+        - quitDelay: float
+        - _audioService: IAudioService
+        - _frameRateLimiter: IFrameRateLimiter
+        - _gameApplication: IGameApplication
+        - _glitchTransition: IGlitchScreenTransition
+        - _sceneLoader: ISceneLoader
+        - _progressStorage: IProgressStorage
+        - _currentProgress: GameProgress
+        - Awake(): void
+        - InitializeDependencies(): void
+        - LoadProgress(): void
+        + OnPlayButtonClicked(): void
+        + OnLeaveButtonClicked(): void
+        - DetermineNightToLoad(): int
+        - LoadNightScene(): void
+        - QuitApplication(): void
+        - OnValidate(): void
+        + DebugResetProgress(): void
+    }
+    
+    interface IGlitchScreenTransition <<interface>> #INTERFACE_COLOR {
+        + TriggerGlitchScreen(): void
+    }
+    
+    class GlitchScreenTransition <<MonoBehaviour>> #UI_COLOR {
+        - _animator: Animator
+        - Awake(): void
+        + TriggerGlitchScreen(): void
+    }
+    
+    class UIButton <<MonoBehaviour>> #UI_COLOR {
+        - clickAudioSource: AudioSource
+        - clickSound: AudioClip
+        - _button: Button
+        - _audioService: IAudioService
+        - Awake(): void
+        + PlayClickSound(): void
+    }
+}
+
+' ====================================================================
+' UI - Mobile Components
+' ====================================================================
+
+package "UI.Mobile" {
+    class VirtualJoystick <<MonoBehaviour>> #UI_COLOR {
+        - background: RectTransform
+        - handle: RectTransform
+        - handleRange: float
+        - deadZone: float
+        - backgroundColor: Color
+        - handleColor: Color
+        - _inputDirection: Vector2
+        - _isActive: bool
+        + Direction: Vector2 <<property>>
+        + IsActive: bool <<property>>
+        - Start(): void
+        - ValidateComponents(): void
+        - SetupVisuals(): void
+        + OnPointerDown(eventData: PointerEventData): void
+        + OnPointerUp(eventData: PointerEventData): void
+        + OnDrag(eventData: PointerEventData): void
+        - ResetJoystick(): void
+        + GetDirection(): Vector2
+        - OnValidate(): void
+    }
+    
+    class RotationButton <<MonoBehaviour>> #UI_COLOR {
+        <<enum>> RotationDirection
+        - direction: RotationDirection
+        - rotationSpeed: float
+        - pressedColor: Color
+        - _button: Button
+        - _buttonImage: Image
+        - _originalColor: Color
+        - _isPressed: bool
+        + IsPressed: bool <<property>>
+        + GetRotationSpeed(): float
+        - Awake(): void
+        + OnPointerDown(eventData: PointerEventData): void
+        + OnPointerUp(eventData: PointerEventData): void
+        - OnValidate(): void
+    }
+    
+    class ActionButton <<MonoBehaviour>> #UI_COLOR {
+        + OnActionPressed: UnityEvent
+    }
+    
+    class CrouchButton <<MonoBehaviour>> #UI_COLOR {
+        + OnCrouchPressed: UnityEvent
+    }
+    
+    class CameraDeadZone <<MonoBehaviour>> #UI_COLOR {
+        + IsPointInDeadZone(point: Vector2): bool
+    }
+}
+
+' ====================================================================
+' UTILS
+' ====================================================================
+
+package "Utils" {
+    class MonoBehaviourExtensions <<static>> #UTILS_COLOR {
+        + {static} ExecuteAfterDelay(mono: MonoBehaviour, action: Action, delay: float): Coroutine
+        - {static} ExecuteAfterDelayCoroutine(action: Action, delay: float): IEnumerator
+        + {static} ExecuteNextFrame(mono: MonoBehaviour, action: Action): Coroutine
+        - {static} ExecuteNextFrameCoroutine(action: Action): IEnumerator
+    }
+    
+    class FPSDebugger <<MonoBehaviour>> #UTILS_COLOR {
+    }
+}
+
+' ====================================================================
+' RELATIONSHIPS - Implementations
+' ====================================================================
+
+IFrameRateLimiter <|.. FrameRateLimiter
+IAudioService <|.. AudioService
+ISceneLoader <|.. SceneLoader
+IGameApplication <|.. GameApplication
+IProgressStorage <|.. PlayerPrefsProgressStorage
+IGlitchScreenTransition <|.. GlitchScreenTransition
+IPlayerInputSource <|.. PCInputSource
+IPlayerInputSource <|.. MobileInputSource
+IPlayerInputSource <|.. ButtonInputSource
+ILookTarget <|.. LookTarget
+
+' ====================================================================
+' RELATIONSHIPS - Dependencies (Core Services)
+' ====================================================================
+
+GameBootstrap ..> FrameRateLimiter : creates
+
+MainMenu ..> AudioService : creates
+MainMenu ..> FrameRateLimiter : creates
+MainMenu ..> GameApplication : creates
+MainMenu ..> SceneLoader : creates
+MainMenu ..> PlayerPrefsProgressStorage : creates
+MainMenu --> GlitchScreenTransition : uses
+MainMenu --> GameProgress : manages
+
+Night1Controller ..> FrameRateLimiter : creates
+Night1Controller ..> SceneLoader : creates
+Night1Controller --> PlayerController : references
+
+UIButton ..> AudioService : creates
+
+' ====================================================================
+' RELATIONSHIPS - Player System
+' ====================================================================
+
+Player --> PlayerState : uses
+Player --> CharacterController : requires
+
+PlayerController --> Player : controls
+PlayerController --> IPlayerInputSource : uses
+PlayerController --> VirtualJoystick : references
+PlayerController --> CameraDeadZone : references
+PlayerController --> CrouchButton : references
+
+FNAFStyleController --> Player : controls
+FNAFStyleController --> IPlayerInputSource : uses
+FNAFStyleController --> RotationButton : references
+FNAFStyleController --> ActionButton : references
+FNAFStyleController --> LookTargetDetector : references
+
+LookTargetDetector --> ILookTarget : detects
+
+' ====================================================================
+' RELATIONSHIPS - Input System
+' ====================================================================
+
+PCInputSource ..> "Unity.Input" : uses
+MobileInputSource --> VirtualJoystick : uses
+MobileInputSource --> CameraDeadZone : uses
+MobileInputSource --> CrouchButton : uses
+ButtonInputSource --> RotationButton : uses
+
+' ====================================================================
+' RELATIONSHIPS - Storage
+' ====================================================================
+
+PlayerPrefsProgressStorage ..> GameProgress : serializes
+PlayerPrefsProgressStorage ..> "Unity.PlayerPrefs" : uses
+
+' ====================================================================
+' RELATIONSHIPS - Scene Management
+' ====================================================================
+
+SceneLoader ..> SceneConstants : uses
+SceneLoader ..> "Unity.SceneManager" : uses
+
+' ====================================================================
+' NOTES
+' ====================================================================
+
+note top of GameBootstrap
+  Entry point of the application.
+  Initializes global settings and FPS limiter.
+end note
+
+note top of MainMenu
+  Main menu controller.
+  Manages game progress, scene loading,
+  and UI interactions.
+end note
+
+note top of Player
+  Core player component.
+  Manages player state, crouching,
+  and character controller.
+end note
+
+note top of PlayerController
+  Standard FPS-style controller.
+  Supports both PC and Mobile input.
+end note
+
+note top of FNAFStyleController
+  FNAF-specific controller with
+  limited rotation and button-based input.
+end note
+
+note top of IPlayerInputSource
+  Strategy pattern for different
+  input sources (PC/Mobile/Button).
+end note
+
+note bottom of SceneConstants
+  Centralized scene name management
+  with validation.
+end note
+
+note bottom of PlayerPrefsProgressStorage
+  Simple PlayerPrefs-based storage.
+  Could be improved with encryption
+  and JSON serialization.
+end note
+
+@enduml
